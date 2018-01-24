@@ -7,9 +7,7 @@ package org.sparqlbuilder.data;
 
 import java.io.*;
 import java.util.*;
-import com.hp.hpl.jena.rdf.model.*;
-import org.sparqlbuilder.data.OWLClassGraph;
-//import com.hp.hpl.jena.util.FileManager;
+import org.apache.jena.rdf.model.*;
 
 /**
  *
@@ -22,20 +20,21 @@ public class SBLDMain {
      */
     static String workdir = "./cc/";
     static String inputdir = "./ci";
-    //static String ontdir = "./ont";
+    static String ontdir = "./ont"; 
 
     static String clfile = "cl.txt"; // cl url \tab cl label \tab ep
-    //static String cgfile = "cgraph.txt"; // url list, pro list, (url, pro, url, ep, sub, ob, #triple) list
-    //static String cgfile = "cgraph.txt"; // (cl url, prop, cl url, ep, #sub, #ob, #triple) list
-    //static String crelfile = "clrel.txt"; // ep tab cl url tab cl url    
     static String epfile = "ep.txt";
-    
+        
     public static void main(String[] args) {
+        boolean addmode = false;
+        if (args[0].equals("a") || args[0].equals("add")){
+            addmode = true;
+        }
+        
         File ifile = new File(inputdir);
         File[] ifiles = null;
-        //HashMap<String, List<String>> crel = null; // url->urls
-        List<String> crel = new LinkedList<String>();
-        List<String> cl = new LinkedList<String>(); 
+        List<String> cl = new LinkedList<>(); 
+
         if (ifile.isDirectory()){
             ifiles = ifile.listFiles();
         }else if (ifile.isFile()){
@@ -44,17 +43,17 @@ public class SBLDMain {
         }else{
             System.err.println("Directory may be wrong.");
         }
-        Map<String, String> cltmp = new HashMap<String, String>();
-        Set<String> eps = new HashSet<String>();
+
+        Map<String, String> cltmp = new HashMap<>();
+        Set<String> eps = new HashSet<>();
         Set<String> bc = getBlackClasses();
+        //Map<String, String> epmap = getEPMap();// should be removed
         File fcl = new File(workdir.concat(clfile));
-        //File fcrel = new File(workdir.concat(crelfile));        
+
         for (File efile : ifiles) {
             System.out.println(efile.getName());
-            // For each ep
+            // For each file
             Model m = getModel(efile);
-            //Set<String> epcl = new HashSet<String>(); // url \tab label \tab #n \tab ep
-            //Set<String> epcgraph = new HashSet<String>(); // ?
             Set<String> nc = new HashSet<String>(); // #ent <= 1
             // get ep 
             Property epp = m.getProperty(SBMURLs.EP);   
@@ -75,6 +74,9 @@ public class SBLDMain {
                 System.err.println("endpoint is null");
                 continue; 
             }
+            
+            ep = checkEPMap(ep);
+            
             String epc = ep.split("//")[1].replace("/", "_").replace("#", "-");
             File epcrfile = new File(workdir.concat(epc).concat(".cr")); // cl-reachable-cl
             File epclfile = new File(workdir.concat(epc).concat(".cl")); // cl-relation-cl
@@ -220,23 +222,15 @@ public class SBLDMain {
             }
         }
         try{
-            BufferedWriter bw1 = new BufferedWriter(new FileWriter(fcl));
+            BufferedWriter bw1 = new BufferedWriter(new FileWriter(fcl, true));
             ListIterator<String> cit = cl.listIterator();
             while(cit.hasNext()){
                 bw1.write(cit.next());
                 bw1.newLine();
             }
             bw1.close();
-            /*
-            BufferedWriter bw2 = new BufferedWriter(new FileWriter(fcrel));
-            ListIterator<String> crit = crel.listIterator();
-            while(crit.hasNext()){
-                bw2.write(crit.next());
-                bw2.newLine();
-            }
-            bw2.close();*/
             File fep = new File(workdir.concat(epfile));
-            BufferedWriter bw3 = new BufferedWriter(new FileWriter(fep));
+            BufferedWriter bw3 = new BufferedWriter(new FileWriter(fep, true));
             Iterator<String> eit = eps.iterator();
             while(eit.hasNext()){
                 bw3.write(eit.next());
@@ -258,8 +252,8 @@ public class SBLDMain {
         }
         return model;
     }
-    
-    public static Set<String> getBlackClasses(){
+        
+    private static Set<String> getBlackClasses(){
         Set<String> bc = new HashSet<String>();
         bc.add("http://www.w3.org/2002/07/owl#Class");
         bc.add("http://www.w3.org/2002/07/owl#ObjectProperty");
@@ -269,5 +263,14 @@ public class SBLDMain {
         bc.add("http://www.w3.org/2002/07/owl#NamedIndividual");
         //bc.add("");
         return bc;
+    }
+    
+    private static String checkEPMap(String epurl){ // From a part of URL->EP URL
+        if (epurl.contains("ebi.ac.uk")){
+            return "https://www.ebi.ac.uk/rdf/services/sparql";
+        }else if (epurl.contains("bio2rdf")){
+            return "http://bio2rdf.org/sparql";
+        }
+        return epurl;
     }
 }
